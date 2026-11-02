@@ -12,7 +12,6 @@ const TEAM_GOAL = 0.8; // 80% of possible check-ins this month
 const WEEKS_ON_WALL = 5;
 const WEEKS_ANALYSED = 12; // patterns look at the last 12 weeks
 const MAX_IMAGE_CHARS = 940000; // one database entry holds about 1 MB
-const BUILT_IN_UNTIL = 3; // the built-in emoji surprises step aside once the team has added 3
 
 const MOODS = [
   { score: 1, emoji: '🫠', label: 'drained' },
@@ -160,8 +159,27 @@ const BUILT_IN = [
 
 async function surprisePool() {
   const team = await listDocs('memes', ['addedAt']);
-  return team.length >= BUILT_IN_UNTIL ? team : [...BUILT_IN, ...team];
+  return team.length ? team : BUILT_IN; // the built-in emoji only fill in while the team hasn't added any
 }
+
+// A Google Images result link is a web page, not an image. The real image address is inside it.
+function directImage(link) {
+  try {
+    const url = new URL(link);
+    if (/(^|\.)google\.[a-z.]+$/.test(url.hostname) && url.pathname === '/imgres' && url.searchParams.get('imgurl')) {
+      return url.searchParams.get('imgurl');
+    }
+  } catch { /* not a link; leave it as it is */ }
+  return link;
+}
+
+const loadsAsImage = (src) => new Promise((resolve) => {
+  const img = new Image();
+  const timer = setTimeout(() => resolve(false), 10000);
+  img.onload = () => { clearTimeout(timer); resolve(true); };
+  img.onerror = () => { clearTimeout(timer); resolve(false); };
+  img.src = src;
+});
 
 async function pickMeme() {
   const all = await surprisePool().catch(() => BUILT_IN);
@@ -409,7 +427,7 @@ function reveal(meme) {
   if (meme.emoji) {
     gift.replaceChildren(el('span', { className: 'emoji-meme', textContent: meme.emoji }));
   } else {
-    const img = el('img', { src: meme.src, alt: meme.caption || 'A surprise from your team' });
+    const img = el('img', { src: directImage(meme.src), alt: meme.caption || 'A surprise from your team' });
     img.onerror = () => {
       gift.replaceChildren(el('span', { className: 'emoji-meme', textContent: '🙈' }));
       $('#giftCap').textContent = 'This surprise didn’t load. The link might not be a direct image.';
@@ -523,12 +541,15 @@ $('#memeForm').addEventListener('submit', async (e) => {
   const form = e.target;
   const msg = $('#memeMsg');
   const file = form.file.files[0];
-  const url = form.url.value.trim();
+  const url = directImage(form.url.value.trim());
   try {
     if (!file && !url) throw new Error('Paste a link or choose an image.');
     if (!file && !url.startsWith('https://')) throw new Error('The link should start with https://');
     if (file && !/^image\/(png|jpeg|gif|webp)$/.test(file.type)) throw new Error('Only PNG, JPG, GIF or WebP images, please.');
     msg.textContent = 'Adding…';
+    if (!file && !(await loadsAsImage(url))) {
+      throw new Error('That link is a web page, not an image. Right-click the image itself and choose "Copy image address".');
+    }
     const src = file ? await imageForUpload(file) : url;
     await addDoc('memes', { src, caption: form.caption.value.trim().slice(0, 80), addedAt: dayStr(new Date()) });
     form.reset();
