@@ -112,19 +112,19 @@ label { display: block; font-weight: 600; font-size: 14px; }
 }
 .overlay[hidden] { display: none; }
 .modal {
-  position: relative; width: 100%; max-width: 380px; background: var(--surface); border-radius: 18px; padding: 24px 20px 20px;
+  position: relative; width: 100%; max-width: 532px; background: var(--surface); border-radius: 18px; padding: 24px 20px 20px;
   text-align: center; animation: pop .35s ease-out;
 }
 .close { position: absolute; top: 8px; right: 10px; border: 0; background: none; font-size: 26px; cursor: pointer; color: var(--muted); }
 .wild { font-weight: 700; color: var(--bright-blue); margin-bottom: 12px; }
 .gift {
-  height: 200px; border-radius: 12px; background: #eeeeee; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  height: 280px; border-radius: 12px; background: #eeeeee; display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
-.gift .box { font-size: 72px; animation: wobble 2.4s ease-in-out infinite; }
+.gift .box { font-size: 100px; animation: wobble 2.4s ease-in-out infinite; }
 .gift.opening .box { animation: shake .6s ease-in-out; }
 .gift.open { background: #fff4c2; }
 .gift img { width: 100%; height: 100%; object-fit: contain; animation: pop .4s ease-out; }
-.emoji-meme { font-size: 88px; animation: pop .4s ease-out; }
+.emoji-meme { font-size: 124px; animation: pop .4s ease-out; }
 .cap { font-size: 14px; color: var(--muted); margin: 8px 0 16px; min-height: 1.4em; }
 .q { font-weight: 700; font-size: 18px; }
 .emo { display: flex; justify-content: space-between; gap: 4px; }

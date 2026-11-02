@@ -162,19 +162,31 @@ async function surprisePool() {
   return team.length ? team : BUILT_IN; // the built-in emoji only fill in while the team hasn't added any
 }
 
-// A Google Images result link is a web page, not an image. The real image address is inside it.
+// Some links people paste are web pages around an image, not the image itself. Where we can, find the image.
 function directImage(link) {
   try {
     const url = new URL(link);
+    // Google Images result page: the real address is inside the link.
     if (/(^|\.)google\.[a-z.]+$/.test(url.hostname) && url.pathname === '/imgres' && url.searchParams.get('imgurl')) {
       return url.searchParams.get('imgurl');
     }
+    // Giphy page, e.g. giphy.com/gifs/happy-cat-AbC123: the GIF lives at media.giphy.com.
+    const giphy = /^\/gifs\/(?:.*-)?([A-Za-z0-9]+)\/?$/.exec(url.pathname);
+    if (/(^|\.)giphy\.com$/.test(url.hostname) && giphy) return `https://media.giphy.com/media/${giphy[1]}/giphy.gif`;
   } catch { /* not a link; leave it as it is */ }
   return link;
 }
 
+// Pasted links: add a missing https://, upgrade http://, and look through page links for the image.
+function cleanLink(text) {
+  const link = /^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`;
+  return directImage(link.replace(/^http:\/\//i, 'https://'));
+}
+
+// no-referrer: some sites refuse to show their images on other websites, and this hides which site is asking.
 const loadsAsImage = (src) => new Promise((resolve) => {
   const img = new Image();
+  img.referrerPolicy = 'no-referrer';
   const timer = setTimeout(() => resolve(false), 10000);
   img.onload = () => { clearTimeout(timer); resolve(true); };
   img.onerror = () => { clearTimeout(timer); resolve(false); };
@@ -427,7 +439,7 @@ function reveal(meme) {
   if (meme.emoji) {
     gift.replaceChildren(el('span', { className: 'emoji-meme', textContent: meme.emoji }));
   } else {
-    const img = el('img', { src: directImage(meme.src), alt: meme.caption || 'A surprise from your team' });
+    const img = el('img', { referrerPolicy: 'no-referrer', src: directImage(meme.src), alt: meme.caption || 'A surprise from your team' });
     img.onerror = () => {
       gift.replaceChildren(el('span', { className: 'emoji-meme', textContent: '🙈' }));
       $('#giftCap').textContent = 'This surprise didn’t load. The link might not be a direct image.';
@@ -541,16 +553,30 @@ $('#memeForm').addEventListener('submit', async (e) => {
   const form = e.target;
   const msg = $('#memeMsg');
   const file = form.file.files[0];
-  const url = directImage(form.url.value.trim());
+  const pasted = form.url.value.trim();
   try {
-    if (!file && !url) throw new Error('Paste a link or choose an image.');
-    if (!file && !url.startsWith('https://')) throw new Error('The link should start with https://');
+    if (!file && !pasted) throw new Error('Paste a link or choose an image.');
     if (file && !/^image\/(png|jpeg|gif|webp)$/.test(file.type)) throw new Error('Only PNG, JPG, GIF or WebP images, please.');
     msg.textContent = 'Adding…';
-    if (!file && !(await loadsAsImage(url))) {
-      throw new Error('That link is a web page, not an image. Right-click the image itself and choose "Copy image address".');
+    let src;
+    if (file) {
+      src = await imageForUpload(file);
+    } else if (/^data:image\//i.test(pasted)) {
+      // "Copy image address" on Google Images often copies the image itself as text, not a link.
+      src = pasted.replace(/\s+/g, '');
+      if (!/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(src)) throw new Error('Only PNG, JPG, GIF or WebP images, please.');
+      if (src.length > MAX_IMAGE_CHARS) throw new Error('That image is too big. Save it and upload the file instead.');
+    } else {
+      src = cleanLink(pasted);
+      let link;
+      try { link = new URL(src); } catch { throw new Error('That doesn’t look like a link. Paste an image address, like https://…/cat.gif'); }
+      if (/(^|\.)tenor\.com$/.test(link.hostname) && !/\.(gif|webp|png|jpe?g)$/i.test(link.pathname)) {
+        throw new Error('That’s a Tenor page, not the GIF. Right-click the GIF and choose "Copy image address".');
+      }
+      if (!(await loadsAsImage(src))) {
+        throw new Error('That link didn’t load as an image. Right-click the image itself and choose "Copy image address", or save it and upload the file.');
+      }
     }
-    const src = file ? await imageForUpload(file) : url;
     await addDoc('memes', { src, caption: form.caption.value.trim().slice(0, 80), addedAt: dayStr(new Date()) });
     form.reset();
     msg.textContent = 'Added! Someone will unwrap it after their next check-in 🎁';
