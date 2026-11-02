@@ -1,0 +1,39 @@
+// A copy of the rules published in the Firebase console (Firestore → Rules).
+// Anyone with the link can read and add entries. Nobody can edit or delete them from the website.
+// The devices collection is no longer used by the app.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /answers/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['date', 'hour', 'score'])
+        && request.resource.data.score is int && request.resource.data.score >= 1 && request.resource.data.score <= 5
+        && request.resource.data.hour is int && request.resource.data.hour >= 0 && request.resource.data.hour <= 23
+        && request.resource.data.date is string && request.resource.data.date.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}');
+    }
+    match /checkins/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['device', 'date'])
+        && request.resource.data.device is string && request.resource.data.device.size() == 32
+        && request.resource.data.date is string && request.resource.data.date.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}');
+    }
+    match /devices/{id} {
+      allow read: if true;
+      allow create: if id.size() == 32 && request.resource.data.keys().hasOnly(['firstSeen']);
+    }
+    match /memes/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['src', 'caption', 'addedAt'])
+        && request.resource.data.src is string && request.resource.data.src.size() < 950000
+        && (request.resource.data.src.matches('https://.*') || request.resource.data.src.matches('data:image/(png|jpeg|gif|webp);base64,.*'))
+        && request.resource.data.caption is string && request.resource.data.caption.size() <= 80
+        && request.resource.data.addedAt is string;
+    }
+    match /events/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['date', 'label'])
+        && request.resource.data.date is string && request.resource.data.date.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
+        && request.resource.data.label is string && request.resource.data.label.size() > 0 && request.resource.data.label.size() <= 30;
+    }
+  }
+}
