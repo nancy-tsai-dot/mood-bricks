@@ -7,7 +7,7 @@ An anonymous, playful emoji check-in for a team, made at the LEGO Imaginarium wo
 - Once a day, at a random time between 9:00 and 17:00, a check-in pops up: *How do you feel about your work right now?* Answer with one of five emoji (🫠 😕 🙂 😊 🔥).
 - Answering unwraps a surprise: a meme, animal or GIF that a teammate added.
 - Your streak is saved only in your own browser.
-- The **Team wall** shows one brick per workday, coloured by the team's average. Days with fewer than 3 answers stay grey, so nobody can be singled out. Work events (releases, sprint starts) appear on the wall, and the app points out patterns.
+- The **Team wall** shows one brick per workday in rows by week number, coloured by the team's average. Click a brick to see that day's mood mix and how it compares with the rest of the week. Days with fewer than 3 answers stay grey, so nobody can be singled out. Work events (releases, sprint starts) appear on the wall, and the app points out patterns.
 - The team goal: reach 80% of possible check-ins in a month to unlock a minifig badge.
 
 ## How it works

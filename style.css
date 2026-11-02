@@ -149,3 +149,40 @@ label { display: block; font-weight: 600; font-size: 14px; }
   .brick { font-size: 16px; height: 34px; }
 }
 .footer { text-align: center; margin: 8px 0 24px; }
+
+/* ---------- week rows and clickable bricks ---------- */
+.week b { display: block; font-weight: 600; color: var(--content); }
+.week small { display: block; font-size: 11px; }
+button.brick { border: 0; padding: 0; width: 100%; font: inherit; font-size: 20px; color: inherit; cursor: pointer; }
+button.brick:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+/* ---------- one day, up close ---------- */
+.modal.day { max-width: 560px; min-width: 0; text-align: left; }
+.day-title { font-weight: 700; font-size: 18px; margin: 0 32px 8px 0; }
+.day-events { display: flex; flex-wrap: wrap; gap: 6px; }
+.day-events .tag { font-size: 12px; padding: 2px 8px; }
+.day-avg { display: flex; align-items: baseline; gap: 10px; margin: 12px 0 0; }
+.big { font-size: 48px; font-weight: 700; line-height: 1; }
+.day h3 { font-size: 16px; margin: 20px 0 8px; }
+.mix-row { display: grid; grid-template-columns: 104px minmax(0, 1fr); align-items: center; gap: 8px; margin-bottom: 4px; font-size: 14px; }
+.mix-track { display: flex; align-items: center; gap: 6px; min-height: 22px; }
+.mix-bar { height: 20px; border-radius: 0 4px 4px 0; }
+.mix-row:hover .mix-bar { filter: brightness(1.08); }
+.mix-val { font-variant-numeric: tabular-nums; }
+.week-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.week-chart .grid { stroke: var(--stroke); stroke-width: 1; }
+.week-chart .tick { font-size: 14px; }
+.week-chart .day { font-size: 12px; fill: var(--muted); }
+.week-chart .day.sel { fill: var(--content); font-weight: 700; }
+.week-chart .line { fill: none; stroke: var(--muted); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.week-chart .dot { stroke: var(--surface); stroke-width: 2; }
+.week-chart .hit { fill: transparent; }
+.week-chart .pt { cursor: pointer; outline: none; }
+.week-chart .pt:hover .dot, .week-chart .pt:focus-visible .dot { stroke: var(--content); }
+.week-chart .val { font-size: 13px; font-weight: 700; fill: var(--content); }
+.week-table { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+.week-table b { color: var(--content); }
+@media (max-width: 420px) {
+  .wall { grid-template-columns: 48px repeat(5, 1fr); }
+  .mix-row { grid-template-columns: 92px minmax(0, 1fr); }
+}

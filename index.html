@@ -34,7 +34,7 @@
     <section id="tab-wall" class="tab" hidden>
       <div class="card">
         <h2>Team brick wall</h2>
-        <p class="muted">Each brick is one workday, coloured by the team's average answer. Days with fewer than <span id="minAnswers">3</span> answers stay grey, so nobody can be singled out.</p>
+        <p class="muted">Each brick is one workday, coloured by the team's average answer. Days with fewer than <span id="minAnswers">3</span> answers stay grey, so nobody can be singled out. Click a coloured brick to see that day up close.</p>
         <label class="check"><input type="checkbox" id="showSample" checked> Include sample data</label>
         <div id="wall" class="wall" aria-label="Team mood by day"></div>
         <div class="legend" id="legend"></div>
@@ -86,6 +86,19 @@
 
     <p class="muted small footer">Anonymous: no names, no logins. Anyone with this link can add answers. A workshop prototype from Imaginarium.</p>
   </main>
+
+  <div class="overlay" id="day" hidden>
+    <div class="modal day" role="dialog" aria-modal="true" aria-labelledby="dayTitle">
+      <button class="close" id="dayClose" aria-label="Close">×</button>
+      <p class="day-title" id="dayTitle"></p>
+      <div class="day-events" id="dayEvents"></div>
+      <p class="day-avg" id="dayAvg"></p>
+      <h3>Mood mix</h3>
+      <div id="dayMix"></div>
+      <h3>That week</h3>
+      <div class="week-chart" id="dayWeek"></div>
+    </div>
+  </div>
 
   <div class="overlay" id="ping" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pingTitle">

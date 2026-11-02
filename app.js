@@ -41,6 +41,12 @@ const isWeekend = (d) => d.getDay() === 0 || d.getDay() === 6;
 const mondayOf = (d) => addDays(startOfDay(d), -((d.getDay() + 6) % 7));
 const prevWorkday = (d) => { let x = addDays(d, -1); while (isWeekend(x)) x = addDays(x, -1); return x; };
 const daysBetween = (a, b) => Math.round((startOfDay(b) - startOfDay(a)) / 86400000);
+// Week numbers as used in Denmark (ISO 8601): weeks start on Monday, week 1 holds the first Thursday.
+function weekNumber(d) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+  return Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7);
+}
 const analysedFrom = () => dayStr(addDays(mondayOf(new Date()), -7 * (WEEKS_ANALYSED - 1)));
 
 // ---------- the team database ----------
@@ -327,15 +333,17 @@ function wall(includeSample) {
     for (let i = 0; i < 5; i++) {
       const date = dayStr(addDays(monday, i));
       const scores = byDay[date] || [];
+      const shown = scores.length >= MIN_ANSWERS_TO_SHOW;
       days.push({
         date,
         count: scores.length,
-        avg: scores.length >= MIN_ANSWERS_TO_SHOW ? Math.round(mean(scores) * 10) / 10 : null,
+        avg: shown ? Math.round(mean(scores) * 10) / 10 : null,
+        mix: shown ? MOODS.map((m) => scores.filter((s) => s === m.score).length) : null, // answers per emoji
         future: date > today,
         events: events.filter((e) => e.date === date).map((e) => e.label),
       });
     }
-    weeks.push({ label: `${monday.getDate()} ${MONTHS[monday.getMonth()]}`, days });
+    weeks.push({ label: `Week ${weekNumber(monday)}`, sub: `${monday.getDate()} ${MONTHS[monday.getMonth()]}`, days });
   }
   const recentEvents = events.filter((e) => e.date >= from);
   return { weeks, patterns: findPatterns(answers, recentEvents), goal: goal() };
@@ -452,7 +460,11 @@ function reveal(meme) {
 $('#pingNow').addEventListener('click', openPing);
 $('#pingClose').addEventListener('click', closePing);
 $('#doneBtn').addEventListener('click', closePing);
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#ping').hidden) closePing(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!$('#ping').hidden) closePing();
+  else if (!$('#day').hidden) closeDay();
+});
 
 // ---------- team wall ----------
 const moodFor = (avg) => MOODS[Math.min(4, Math.max(0, Math.round(avg) - 1))];
@@ -470,20 +482,21 @@ async function loadWall() {
 
   const cells = [el('div'), ...HEADS.map((d) => el('div', { className: 'head', textContent: d }))];
   for (const week of data.weeks) {
-    cells.push(el('div', { className: 'week', textContent: week.label }));
+    cells.push(el('div', { className: 'week' }, el('b', { textContent: week.label }), el('small', { textContent: week.sub })));
     for (const day of week.days) {
-      const brick = el('div', { className: 'brick' });
+      let brick;
       if (day.future) {
-        brick.classList.add('future');
-        brick.title = prettyDate(day.date);
+        brick = el('div', { className: 'brick future', title: prettyDate(day.date) });
       } else if (day.avg == null) {
-        brick.classList.add('grey');
-        brick.title = day.count ? `${prettyDate(day.date)}: too few answers to show` : `${prettyDate(day.date)}: no answers`;
+        brick = el('div', { className: 'brick grey', title: day.count ? `${prettyDate(day.date)}: too few answers to show` : `${prettyDate(day.date)}: no answers` });
       } else {
         const mood = moodFor(day.avg);
-        brick.classList.add(`m${mood.score}`);
-        brick.textContent = mood.emoji;
-        brick.title = `${prettyDate(day.date)}: average ${day.avg} (${mood.label}) from ${day.count} answers`;
+        const summary = `${prettyDate(day.date)}: average ${day.avg} (${mood.label}) from ${day.count} answers`;
+        brick = el('button', {
+          type: 'button', className: `brick m${mood.score}`, textContent: mood.emoji,
+          title: `${summary}. Click for details.`, ariaLabel: `${summary}. Open details`,
+          onclick: () => openDay(week, day),
+        });
       }
       cells.push(el('div', { className: 'cell' }, brick, ...day.events.map((e) => el('span', { className: 'tag', textContent: e }))));
     }
@@ -505,6 +518,94 @@ async function loadWall() {
     ? 'Goal reached! Everyone unlocks a minifig badge 🏅'
     : `Reach ${Math.round(target * 100)}% and everyone unlocks a minifig badge 🏅 (counted for a team of ${teamSize})`;
 }
+// ---------- one day, up close ----------
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const svg = (tag, attrs = {}, ...children) => {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  node.append(...children);
+  return node;
+};
+const moodColour = (score) => getComputedStyle(document.documentElement).getPropertyValue(`--mood-${score}`).trim();
+
+function openDay(week, day) {
+  const mood = moodFor(day.avg);
+  $('#dayTitle').textContent = `${prettyDate(day.date)} · ${week.label}`;
+  $('#dayEvents').replaceChildren(...day.events.map((e) => el('span', { className: 'tag', textContent: e })));
+  $('#dayAvg').replaceChildren(
+    el('span', { className: 'big', textContent: day.avg.toFixed(1) }),
+    el('span', { className: 'muted', textContent: `${mood.emoji} ${mood.label} on average, from ${day.count} answers` }),
+  );
+  $('#day').hidden = false; // shown first, so the charts can measure their width
+  $('#dayMix').replaceChildren(...mixChart(day.mix));
+  weekChart(week, day);
+  $('#dayClose').focus();
+}
+const closeDay = () => { $('#day').hidden = true; };
+$('#dayClose').addEventListener('click', closeDay);
+$('#day').addEventListener('click', (e) => { if (e.target.id === 'day') closeDay(); });
+
+// How many people picked each emoji: one bar per mood, best at the top, count at the tip.
+function mixChart(mix) {
+  const most = Math.max(...mix);
+  return [...MOODS].reverse().map((m) => {
+    const n = mix[m.score - 1];
+    return el('div', { className: 'mix-row', title: `${n} ${n === 1 ? 'answer' : 'answers'}: ${m.emoji} ${m.label}` },
+      el('span', { className: 'mix-label', textContent: `${m.emoji} ${m.label}` }),
+      el('span', { className: 'mix-track' },
+        n ? el('span', { className: 'mix-bar', style: `width:calc((100% - 32px) * ${n / most});background:var(--mood-${m.score})` }) : '',
+        el('span', { className: n ? 'mix-val' : 'mix-val muted', textContent: String(n) })));
+  });
+}
+
+// The team's average for each workday of that week. Days with too few answers are left as gaps.
+function weekChart(week, selected) {
+  const box = $('#dayWeek');
+  const W = Math.max(260, box.clientWidth);
+  const H = 180;
+  const pad = { l: 34, r: 16, t: 22, b: 28 };
+  const x = (i) => pad.l + (i * (W - pad.l - pad.r)) / 4;
+  const y = (v) => pad.t + ((5 - v) * (H - pad.t - pad.b)) / 4;
+  const chart = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `Team average per day in ${week.label}` });
+
+  for (const m of MOODS) { // hairline grid, with the emoji as the scale
+    chart.append(
+      svg('line', { x1: pad.l, x2: W - pad.r, y1: y(m.score), y2: y(m.score), class: 'grid' }),
+      svg('text', { x: pad.l - 10, y: y(m.score) + 5, 'text-anchor': 'end', class: 'tick' }, m.emoji),
+    );
+  }
+
+  let path = '';
+  week.days.forEach((d, i) => {
+    if (d.avg == null) return;
+    const prev = week.days[i - 1];
+    path += `${prev && prev.avg != null ? 'L' : 'M'}${x(i)},${y(d.avg)}`;
+  });
+  if (path) chart.append(svg('path', { d: path, class: 'line' }));
+
+  week.days.forEach((d, i) => {
+    const isSelected = d.date === selected.date;
+    chart.append(svg('text', { x: x(i), y: H - 8, 'text-anchor': 'middle', class: isSelected ? 'day sel' : 'day' }, HEADS[i]));
+    if (d.avg == null) return;
+    const mood = moodFor(d.avg);
+    const point = svg('g', { class: 'pt', tabindex: 0, role: 'button', 'aria-label': `${prettyDate(d.date)}: average ${d.avg}` },
+      svg('title', {}, `${prettyDate(d.date)}: average ${d.avg} (${mood.label}) from ${d.count} answers`),
+      svg('circle', { cx: x(i), cy: y(d.avg), r: 14, class: 'hit' }),
+      svg('circle', { cx: x(i), cy: y(d.avg), r: isSelected ? 7 : 5, fill: moodColour(mood.score), class: 'dot' }));
+    if (isSelected) point.append(svg('text', { x: x(i), y: y(d.avg) - 12, 'text-anchor': 'middle', class: 'val' }, d.avg.toFixed(1)));
+    const pick = () => openDay(week, d);
+    point.addEventListener('click', pick);
+    point.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+    chart.append(point);
+  });
+
+  // The same numbers as text, so nobody has to hover to read them.
+  const table = el('p', { className: 'week-table' }, ...week.days.flatMap((d, i) => [
+    i ? ' · ' : '', el(d.date === selected.date ? 'b' : 'span', { textContent: `${HEADS[i]} ${d.avg == null ? '–' : d.avg.toFixed(1)}` }),
+  ]));
+  box.replaceChildren(chart, table);
+}
+
 $('#showSample').addEventListener('change', loadWall);
 setInterval(() => { if (!$('#tab-wall').hidden) loadWall(); }, 30000); // live refresh for a shared screen
 
